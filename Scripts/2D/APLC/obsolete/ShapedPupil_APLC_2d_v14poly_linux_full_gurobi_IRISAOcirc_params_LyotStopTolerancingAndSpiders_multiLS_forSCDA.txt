@@ -1,0 +1,228 @@
+load amplgsl.dll;
+#function gsl_sf_bessel_J0;
+#function gsl_sf_bessel_J1;
+
+
+#---------------------
+
+param pi := 4*atan(1);
+
+#---------------------
+param c := 10;
+
+#---------------------
+param Rmask := 8./2;
+
+param rho0 := 3.5;
+param rho1 := 10.0;
+
+#---------------------
+param N := 250;				# discretization parameter (pupil)
+param M := 50;				# discretization parameter (mask)
+
+param Nimg := 60;			# discretization parameter (image)
+param Fmax := 25;
+
+#---------------------
+param bw := 0.0;
+param lam0 := 1.;
+param dl := bw*lam0;
+param Nlam := 3;
+
+#---------------------
+param Normterm := 1.00; 	# 0.380
+
+#---------------------
+param CoeffOverSizePup := 0.82;
+
+#---------------------
+# steps in each plane
+param dx := 1/(2*N);
+param dy := dx;
+
+param dmx := 2*Rmask/(2*M);
+param dmy := dmx;
+
+param dxi := (Fmax/Nimg)*(1/CoeffOverSizePup);
+param deta := dxi;
+
+#---------------------
+# coordinate vectors in each plane
+set XsQ := setof {i in 0.5..N-0.5 by 1} i*dx;
+set YsQ := setof {j in 0.5..N-0.5 by 1} j*dy;
+
+set Xs := setof {i in -N+0.5..N-0.5 by 1} i*dx;
+set Ys := setof {j in -N+0.5..N-0.5 by 1} j*dy;
+
+set MXsQ := setof {i in 0.5..M-0.5 by 1} i*dmx;
+set MYsQ := setof {j in 0.5..M-0.5 by 1} j*dmy;
+
+set MXs := setof {i in -M+0.5..M-0.5 by 1} i*dmx;
+set MYs := setof {j in -M+0.5..M-0.5 by 1} j*dmy;
+
+set Ls := setof {l in 1..Nlam} lam0*(1+((l-1)/(Nlam-1)-0.5)*dl);
+
+#---------------------
+# Loading Pupil
+param PupilFile {x in Xs,y in Ys};
+
+read {x in Xs,y in Ys} PupilFile[x,y] < ("/astro/opticslab1/Users/Mamadou/AMPL/PupilDataFiles/2D/SCDA/TelAp_full_hex3X025cobs1gap1_N0250.dat"); # Loading Pupil
+close ("/astro/opticslab1/Users/Mamadou/AMPL/PupilDataFiles/2D/SCDA/TelAp_full_hex3X025cobs1gap1_N0250.dat"); # Loading Pupil
+
+# Loading Mask
+param MaskFile {mx in MXs, my in MYs};
+
+read {mx in MXs, my in MYs} MaskFile[mx,my] < ("/astro/opticslab1/Users/Mamadou/AMPL/PupilDataFiles/2D/SCDA/FPM_full_occspot_M050_BW.dat"); 
+close ("/astro/opticslab1/Users/Mamadou/AMPL/PupilDataFiles/2D/SCDA/FPM_full_occspot_M050_BW.dat");
+
+# Loading Lyot stop0
+param LyotFile0 {x in Xs,y in Ys};
+
+read {x in Xs,y in Ys} LyotFile0[x,y] < ("/astro/opticslab1/Users/Mamadou/AMPL/PupilDataFiles/2D/SCDA/LS_full_ann20D82_clear_N0250.dat"); # Loading Lyot stop
+close ("/astro/opticslab1/Users/Mamadou/AMPL/PupilDataFiles/2D/SCDA/LS_full_ann20D82_clear_N0250.dat");
+
+# Loading Lyot stop1-0.5pix
+param LyotFile1 {x in Xs,y in Ys};
+
+#read {x in Xs,y in Ys} LyotFile1[x,y] < ("/astro/opticslab1/Users/Mamadou/AMPL/PupilDataFiles/2D/SCDA/LS_full_ann20D82_clear_N0250_X050Shift.dat"); # Loading Lyot stop
+#close ("/astro/opticslab1/Users/Mamadou/AMPL/PupilDataFiles/2D/SCDA/LS_full_ann20D82_clear_N0250_X050Shift.dat");
+
+# Loading Lyot stop1-0.25pix
+read {x in Xs,y in Ys} LyotFile1[x,y] < ("/astro/opticslab1/Users/Mamadou/AMPL/PupilDataFiles/2D/SCDA/LS_full_ann20D82_clear_N0250_X025Shift.dat"); # Loading Lyot stop
+close ("/astro/opticslab1/Users/Mamadou/AMPL/PupilDataFiles/2D/SCDA/LS_full_ann20D82_clear_N0250_X025Shift.dat");
+
+# Loading Lyot stop2
+param LyotFile2 {x in Xs,y in Ys};
+
+# Loading Lyot stop2-0.5pix
+#read {x in Xs,y in Ys} LyotFile2[x,y] < ("/astro/opticslab1/Users/Mamadou/AMPL/PupilDataFiles/2D/SCDA/LS_full_ann20D82_clear_N0250_Y050Shift.dat"); # Loading Lyot stop
+#close ("/astro/opticslab1/Users/Mamadou/AMPL/PupilDataFiles/2D/SCDA/LS_full_ann20D82_clear_N0250_Y050Shift.dat");
+
+# Loading Lyot stop1-0.25pix
+read {x in Xs,y in Ys} LyotFile2[x,y] < ("/astro/opticslab1/Users/Mamadou/AMPL/PupilDataFiles/2D/SCDA/LS_full_ann20D82_clear_N0250_Y025Shift.dat"); # Loading Lyot stop
+close ("/astro/opticslab1/Users/Mamadou/AMPL/PupilDataFiles/2D/SCDA/LS_full_ann20D82_clear_N0250_Y025Shift.dat");
+
+
+#---------------------
+set Pupil := setof {x in Xs, y in Ys: PupilFile[x,y] != 0} (x,y);
+set Mask := setof {mx in MXs, my in MYs: MaskFile[mx,my] != 0} (mx,my);
+set Lyot0 := setof {x in Xs, y in Ys: LyotFile0[x,y] != 0} (x,y);
+set Lyot1 := setof {x in Xs, y in Ys: LyotFile1[x,y] != 0} (x,y);
+set Lyot2 := setof {x in Xs, y in Ys: LyotFile2[x,y] != 0} (x,y);
+
+set PupilQuarter := setof {x in XsQ, y in YsQ: PupilFile[x,y] != 0} (x,y);
+set MaskQuarter := setof {mx in MXsQ, my in MYsQ: MaskFile[mx,my] != 0} (mx,my);
+
+param TR := sum {x in Xs, y in Ys} PupilFile[x,y]*dx*dy; # Transmission of the Pupil. Used for calibration.
+
+var A_quarter {x in XsQ, y in YsQ} >= 0, <= 1, := 0.5;
+
+#---------------------
+
+set Xis := setof {i in -Nimg..Nimg-1 by 1} i*dxi;
+set Etas := setof {j in -Nimg..Nimg-1 by 1} j*deta;
+
+set DarkHole := setof {xi in Xis, eta in Etas: sqrt(xi^2+eta^2) >= rho0 && sqrt(xi^2+eta^2) <= rho1} (xi,eta); # Only for 360deg masks.
+set PSFCore := setof {xi in Xis, eta in Etas: sqrt(xi^2+eta^2) >= 0 && sqrt(xi^2+eta^2) < rho0} (xi,eta); # Only for 360deg masks.
+
+set InsideArea := setof {xi in Xis, eta in Etas: sqrt(xi^2+eta^2) >= rho0 && sqrt(xi^2+eta^2) <= rho1} (xi,eta); # Only for 360deg masks.
+
+
+#---------------------
+var EBm_cx_quarter {x in XsQ, my in MYsQ, lam in Ls} := 0.0;
+var EBm_real_quarter {mx in MXsQ, my in MYsQ, lam in Ls} := 0.0;
+
+subject to st_EBm_cx_quarter {x in XsQ, my in MYsQ, lam in Ls}: EBm_cx_quarter[x,my,lam] = 2.*sum {y in YsQ: (x,y) in PupilQuarter} A_quarter[x,y]*PupilFile[x,y]*cos(2*pi*y*my*(lam0/lam))*dy;
+subject to st_EBm_real_quarter {(mx,my) in MaskQuarter, lam in Ls}: EBm_real_quarter[mx,my,lam] = 2.*(lam0/lam)*sum {x in XsQ} (EBm_cx_quarter[x,my,lam]*cos(2*pi*x*mx*(lam0/lam)))*dx;
+
+
+#---------------------
+var ECm1_Bmreal_cx_quarter {mx in MXsQ, y in YsQ, lam in Ls} := 0.0;
+var ECm_real_quarter {x in XsQ, y in YsQ, lam in Ls} := 0.0;
+
+subject to st_ECm1_Bmreal_cx_quarter {mx in MXsQ, y in YsQ, lam in Ls}: ECm1_Bmreal_cx_quarter[mx,y,lam] = 2.*sum {my in MYsQ: (mx,my) in MaskQuarter} EBm_real_quarter[mx,my,lam]*MaskFile[mx,my]*cos(2*pi*y*my*(lam0/lam))*dmy;
+subject to st_ECm_real_quarter {x in XsQ, y in YsQ, lam in Ls}: ECm_real_quarter[x,y,lam] = 2.*(lam0/lam)*sum {mx in MXsQ} (ECm1_Bmreal_cx_quarter[mx,y,lam]*cos(2*pi*x*mx*(lam0/lam)))*dmx;
+
+#---------------------
+var ECm_real {x in Xs, y in Ys, lam in Ls} := 0.0;
+subject to st_ECm_real_1 {x in XsQ, y in YsQ, lam in Ls}: ECm_real[x,y,lam]  =ECm_real_quarter[x,y,lam];
+subject to st_ECm_real_2 {x in XsQ, y in YsQ, lam in Ls}: ECm_real[-x,y,lam] =ECm_real_quarter[x,y,lam];
+subject to st_ECm_real_3 {x in XsQ, y in YsQ, lam in Ls}: ECm_real[x,-y,lam] =ECm_real_quarter[x,y,lam];
+subject to st_ECm_real_4 {x in XsQ, y in YsQ, lam in Ls}: ECm_real[-x,-y,lam]=ECm_real_quarter[x,y,lam];
+
+#---------------------
+var A {x in Xs, y in Ys} := 0.0;
+subject to st_A_1 {x in XsQ, y in YsQ}: A[x,y]  =A_quarter[x,y];
+subject to st_A_2 {x in XsQ, y in YsQ}: A[-x,y] =A_quarter[x,y];
+subject to st_A_3 {x in XsQ, y in YsQ}: A[x,-y] =A_quarter[x,y];
+subject to st_A_4 {x in XsQ, y in YsQ}: A[-x,-y]=A_quarter[x,y];
+
+#---------------------
+var ED1_ECmreal_cx0 {x in Xs, eta in Etas, lam in Ls} := 0.0;
+var ED1_ECmreal_sx0 {x in Xs, eta in Etas, lam in Ls} := 0.0;
+var ED1_ECmreal_cx1 {x in Xs, eta in Etas, lam in Ls} := 0.0;
+var ED1_ECmreal_sx1 {x in Xs, eta in Etas, lam in Ls} := 0.0;
+var ED1_ECmreal_cx2 {x in Xs, eta in Etas, lam in Ls} := 0.0;
+var ED1_ECmreal_sx2 {x in Xs, eta in Etas, lam in Ls} := 0.0;
+var ED_real0 {xi in Xis, eta in Etas, lam in Ls} := 0.0;
+var ED_imag0 {xi in Xis, eta in Etas, lam in Ls} := 0.0;
+var ED_real1 {xi in Xis, eta in Etas, lam in Ls} := 0.0;
+var ED_imag1 {xi in Xis, eta in Etas, lam in Ls} := 0.0;
+var ED_real2 {xi in Xis, eta in Etas, lam in Ls} := 0.0;
+var ED_imag2 {xi in Xis, eta in Etas, lam in Ls} := 0.0;
+
+subject to st_ED1_ECmreal_cx0 {x in Xs, eta in Etas, lam in Ls}: ED1_ECmreal_cx0[x,eta,lam] = sum {y in Ys: (x,y) in Lyot0} (A[x,y]*PupilFile[x,y]-ECm_real[x,y,lam])*LyotFile0[x,y]*cos(2*pi*y*eta*(lam0/lam))*dy;
+subject to st_ED1_ECmreal_sx0 {x in Xs, eta in Etas, lam in Ls}: ED1_ECmreal_sx0[x,eta,lam] = sum {y in Ys: (x,y) in Lyot0} (A[x,y]*PupilFile[x,y]-ECm_real[x,y,lam])*LyotFile0[x,y]*sin(2*pi*y*eta*(lam0/lam))*dy;
+subject to st_ED1_ECmreal_cx1 {x in Xs, eta in Etas, lam in Ls}: ED1_ECmreal_cx1[x,eta,lam] = sum {y in Ys: (x,y) in Lyot1} (A[x,y]*PupilFile[x,y]-ECm_real[x,y,lam])*LyotFile1[x,y]*cos(2*pi*y*eta*(lam0/lam))*dy;
+subject to st_ED1_ECmreal_sx1 {x in Xs, eta in Etas, lam in Ls}: ED1_ECmreal_sx1[x,eta,lam] = sum {y in Ys: (x,y) in Lyot1} (A[x,y]*PupilFile[x,y]-ECm_real[x,y,lam])*LyotFile1[x,y]*sin(2*pi*y*eta*(lam0/lam))*dy;
+subject to st_ED1_ECmreal_cx2 {x in Xs, eta in Etas, lam in Ls}: ED1_ECmreal_cx2[x,eta,lam] = sum {y in Ys: (x,y) in Lyot2} (A[x,y]*PupilFile[x,y]-ECm_real[x,y,lam])*LyotFile2[x,y]*cos(2*pi*y*eta*(lam0/lam))*dy;
+subject to st_ED1_ECmreal_sx2 {x in Xs, eta in Etas, lam in Ls}: ED1_ECmreal_sx2[x,eta,lam] = sum {y in Ys: (x,y) in Lyot2} (A[x,y]*PupilFile[x,y]-ECm_real[x,y,lam])*LyotFile2[x,y]*sin(2*pi*y*eta*(lam0/lam))*dy;
+
+
+subject to st_ED_real0 {(xi, eta) in InsideArea, lam in Ls}: ED_real0[xi,eta,lam] = (lam0/lam)*sum {x in Xs} (ED1_ECmreal_cx0[x,eta,lam]*cos(2*pi*x*xi*(lam0/lam))-ED1_ECmreal_sx0[x,eta,lam]*sin(2*pi*x*xi*(lam0/lam)))*dx;
+subject to st_ED_imag0 {(xi, eta) in InsideArea, lam in Ls}: ED_imag0[xi,eta,lam] = (lam0/lam)*sum {x in Xs} -(ED1_ECmreal_cx0[x,eta,lam]*sin(2*pi*x*xi*(lam0/lam))+ED1_ECmreal_sx0[x,eta,lam]*cos(2*pi*x*xi*(lam0/lam)))*dx;
+subject to st_ED_real1 {(xi, eta) in InsideArea, lam in Ls}: ED_real1[xi,eta,lam] = (lam0/lam)*sum {x in Xs} (ED1_ECmreal_cx1[x,eta,lam]*cos(2*pi*x*xi*(lam0/lam))-ED1_ECmreal_sx1[x,eta,lam]*sin(2*pi*x*xi*(lam0/lam)))*dx;
+subject to st_ED_imag1 {(xi, eta) in InsideArea, lam in Ls}: ED_imag1[xi,eta,lam] = (lam0/lam)*sum {x in Xs} -(ED1_ECmreal_cx1[x,eta,lam]*sin(2*pi*x*xi*(lam0/lam))+ED1_ECmreal_sx1[x,eta,lam]*cos(2*pi*x*xi*(lam0/lam)))*dx;
+subject to st_ED_real2 {(xi, eta) in InsideArea, lam in Ls}: ED_real2[xi,eta,lam] = (lam0/lam)*sum {x in Xs} (ED1_ECmreal_cx2[x,eta,lam]*cos(2*pi*x*xi*(lam0/lam))-ED1_ECmreal_sx2[x,eta,lam]*sin(2*pi*x*xi*(lam0/lam)))*dx;
+subject to st_ED_imag2 {(xi, eta) in InsideArea, lam in Ls}: ED_imag2[xi,eta,lam] = (lam0/lam)*sum {x in Xs} -(ED1_ECmreal_cx2[x,eta,lam]*sin(2*pi*x*xi*(lam0/lam))+ED1_ECmreal_sx2[x,eta,lam]*cos(2*pi*x*xi*(lam0/lam)))*dx;
+
+
+#---------------------
+var ED00_real0 := 0.0;
+subject to st_ED00_real0: ED00_real0 = sum {x in Xs, y in Ys: (x,y) in Lyot0} (A[x,y]*PupilFile[x,y]*LyotFile0[x,y])*dx*dy;
+
+
+#---------------------
+maximize throughput: sum{(x,y) in Pupil} A[x,y]*dx*dy/TR;
+
+subject to sidelobe_zero_real_pos0 {(xi,eta) in DarkHole, lam in Ls}: ED_real0[xi,eta,lam] <= 10^(-c/2)*ED00_real0/sqrt(2.);
+subject to sidelobe_zero_real_neg0 {(xi,eta) in DarkHole, lam in Ls}: ED_real0[xi,eta,lam] >= -10^(-c/2)*ED00_real0/sqrt(2.);
+subject to sidelobe_zero_imag_pos0 {(xi,eta) in DarkHole, lam in Ls}: ED_imag0[xi,eta,lam] <= 10^(-c/2)*ED00_real0/sqrt(2.);
+subject to sidelobe_zero_imag_neg0 {(xi,eta) in DarkHole, lam in Ls}: ED_imag0[xi,eta,lam] >= -10^(-c/2)*ED00_real0/sqrt(2.);
+
+subject to sidelobe_zero_real_pos1 {(xi,eta) in DarkHole, lam in Ls}: ED_real1[xi,eta,lam] <= 10^(-c/2)*ED00_real0/sqrt(2.);
+subject to sidelobe_zero_real_neg1 {(xi,eta) in DarkHole, lam in Ls}: ED_real1[xi,eta,lam] >= -10^(-c/2)*ED00_real0/sqrt(2.);
+subject to sidelobe_zero_imag_pos1 {(xi,eta) in DarkHole, lam in Ls}: ED_imag1[xi,eta,lam] <= 10^(-c/2)*ED00_real0/sqrt(2.);
+subject to sidelobe_zero_imag_neg1 {(xi,eta) in DarkHole, lam in Ls}: ED_imag1[xi,eta,lam] >= -10^(-c/2)*ED00_real0/sqrt(2.);
+
+subject to sidelobe_zero_real_pos2 {(xi,eta) in DarkHole, lam in Ls}: ED_real2[xi,eta,lam] <= 10^(-c/2)*ED00_real0/sqrt(2.);
+subject to sidelobe_zero_real_neg2 {(xi,eta) in DarkHole, lam in Ls}: ED_real2[xi,eta,lam] >= -10^(-c/2)*ED00_real0/sqrt(2.);
+subject to sidelobe_zero_imag_pos2 {(xi,eta) in DarkHole, lam in Ls}: ED_imag2[xi,eta,lam] <= 10^(-c/2)*ED00_real0/sqrt(2.);
+subject to sidelobe_zero_imag_neg2 {(xi,eta) in DarkHole, lam in Ls}: ED_imag2[xi,eta,lam] >= -10^(-c/2)*ED00_real0/sqrt(2.);
+
+
+option times 1;
+option gentimes 1;
+option show_stats 1;
+option TMPDIR '/ssdfast1/tmp/';
+
+option solver gurobi;
+option gurobi_options "outlev=1 lpmethod=2 crossover=0";
+
+solve;
+display solve_result_num, solve_result;
+
+#---------------------
+printf {x in Xs, y in Ys}: "%15g %15g %15g \n", x, y, A[x,y] > ("/astro/opticslab1/Users/Mamadou/AMPL/PupilDataFiles/2D/SCDA/ApodSol_APLC_full_hex3X025cobs1gap2_N0250r_FPM400M060_LSann20D82clear_Img100C_35DA100_BW15Nlam05fpres2_linbarhompre1_multiLS_XY000Shift_test05.dat");
+
+option log_file "/astro/opticslab1/Users/Mamadou/AMPL/PupilDataFiles/2D/SCDA/ApodSol_APLC_full_hex3X025cobs1gap2_N0250r_FPM400M060_LSann20D82clear_Img100C_35DA100_BW15Nlam05fpres2_linbarhompre1_multiLS_XY000Shift_test05_log.txt";

@@ -1,0 +1,61 @@
+param pi := 4*atan(1);
+
+param N := 256;		# discretization parameter
+param dx := 1/(2*N);
+param dy := dx;
+set Xs := setof {j in -N+0.5..N-0.5 by 1} j/(2*N);
+set Ys := setof {j in 0.5..N-0.5 by 1} j/(2*N);
+
+param NROORIG {1..2*N,1..N};
+read {i in 1..2*N,j in 1..N} NROORIG[i,j] < AFTA_N=0256_half.dat; # Loading AFTA
+
+param TRANSMISSION:= sum {i in 1..2*N, j in 1..N} NROORIG[i,j]^2*dx*dy; # Transmission of the AFTA pupil. Used for calibration.
+
+set Pupil := setof {x in Xs, y in Ys: NROORIG[round(x/dx+0.5+N),round(y/dy+0.5)] == 1} (x,y);
+
+param rho0 :=7;
+param rho1 := 12;  # OWA
+param alf := 60;   # Angular extent of dark hole
+
+param c := 8;	   # Contrast
+
+var A {x in Xs, y in Ys} >= 0, <= 1, := 0.0;
+
+param M := round(4*rho1);		# discretization parameter
+
+set Xis := setof {j in 0..M} rho0+j*(rho1-rho0)/M; # For characterization masks.
+#set Xis := setof {i in 0..M} i*rho1/M; # For 360 degrees masks.
+set Etas := setof {j in 0..M} j*rho1/M;
+
+set DarkHole := setof {xi in Xis, eta in Etas: sqrt(xi^2+eta^2) >= rho0 && sqrt(xi^2+eta^2) <= rho1 && eta<=xi*tan(alf/2*pi/180)} (xi,eta);
+#set DarkHole := setof {xi in Xis, eta in Etas: sqrt(xi^2+eta^2) >= rho0 && sqrt(xi^2+eta^2) <= rho1} (xi,eta); # Only for 360deg masks.
+
+set DarkHoleZero := setof {xi in Xis, eta in Etas: (xi,eta) in DarkHole || (xi==0 && eta==0)} (xi,eta);
+
+var C {x in Xs, eta in Etas};
+var E_real {(xi,eta) in DarkHoleZero};
+var E_imag {(xi,eta) in DarkHoleZero};
+
+var area = sum {(x,y) in Pupil} A[x,y]*dx*dy;
+
+maximize throughput: area;
+
+subject to C_def {x in Xs, eta in Etas}: C[x,eta] = 2*sum {y in Ys: (x,y) in Pupil} A[x,y]*cos(2*pi*y*eta)*dy;
+
+subject to E_real_def {(xi,eta) in DarkHoleZero}: E_real[xi,eta] = sum {x in Xs} C[x,eta]*cos(2*pi*x*xi)*dx;
+subject to E_imag_def {(xi,eta) in DarkHoleZero}: E_imag[xi,eta] = sum {x in Xs} C[x,eta]*sin(2*pi*x*xi)*dx;
+
+subject to sidelobe {(xi,eta) in DarkHole}:   (E_real[xi,eta]^2+E_imag[xi,eta]^2) <= 10^(-c-1)*TRANSMISSION; 
+
+# I am not satisfied with the normalization of the intensity. We should normalize with E_real[0,0]^2, but Gurobi thinks it prevents the problem to be definite positive. I tried to play around this problem, but I did not find a solution. In the end I take into account the mask transmission with the -1 offset in the contrast.
+
+# You can absolutely write it for LOQO, where we know that the appropriate normalization can be written.
+
+data;
+
+option solver gurobi;
+option gurobi_options "outlev=1";
+
+solve;
+
+printf {x in Xs, y in Ys}: "%10f %10f %10f \n", x, y, A[x,y] > "AMPL_AFTA_N=0256_half_IWA=7.dat";

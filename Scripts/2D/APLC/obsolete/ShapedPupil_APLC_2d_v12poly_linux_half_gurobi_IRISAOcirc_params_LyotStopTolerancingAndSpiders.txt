@@ -1,0 +1,238 @@
+load amplgsl.dll;
+#function gsl_sf_bessel_J0;
+#function gsl_sf_bessel_J1;
+
+
+#---------------------
+
+param pi := 4*atan(1);
+
+#---------------------
+param c := 8;
+
+#---------------------
+param Rmask := 8.662/2;
+
+param rho0 := 6.0;
+param rho1 := 10.0;
+
+#---------------------
+param N := 250;				# discretization parameter (pupil)
+param M := 50;				# discretization parameter (mask)
+
+param Nimg := 60;			# discretization parameter (image)
+param Fmax := 25;
+
+#---------------------
+param bw := 0.10;
+param lam0 := 1.;
+param dl := bw*lam0;
+param Nlam := 1;
+
+#---------------------
+param obs := 20;
+param spiders :=01;
+param lsobs := 20;
+param lsspiders :=02;
+param gap :=01;
+param lsgap :=00;
+
+param OD :=0.98;
+
+#---------------------
+param Normterm := 1.00; 	# 0.380
+
+#---------------------
+param CoeffOverSizePup :=0.824*OD;
+
+#---------------------
+# steps in each plane
+param dx := 1/(2*N);
+
+param dy := dx;
+
+param dmx := 2*Rmask/(2*M);
+param dmy := dmx;
+
+param dxi := (Fmax/Nimg)*(1/CoeffOverSizePup);
+param deta := dxi;
+
+#---------------------
+# coordinate vectors in each plane
+set Xs := setof {i in -N+0.5..N-0.5 by 1} i*dx;
+set Ys := setof {j in 0.5..N-0.5 by 1} j*dy;
+
+set MXs := setof {i in -M+0.5..M-0.5 by 1} i*dmx;
+set MYs := setof {j in 0.5..M-0.5 by 1} j*dmy;
+
+#set Ls := setof {l in 1..Nlam} lam0*(1+((l-1)/(Nlam-1)-0.5)*dl);
+set Ls := setof {l in 1..Nlam} lam0;
+
+#---------------------
+# Loading Pupil
+param PupilFile {x in Xs,y in Ys};
+
+read {x in Xs,y in Ys} PupilFile[x,y] < ("/astro/opticslab1/Users/Mamadou/AMPL/BPLC/Pupil Data File/IRISAOcirc/HiCAT-Cropped_N=0250_center_half_BW.dat"); # Loading Pupil
+close ("/astro/opticslab1/Users/Mamadou/AMPL/BPLC/Pupil Data File/IRISAOcirc/HiCAT-Cropped_N=0250_center_half_BW.dat"); # Loading Pupil
+
+# Loading Mask
+param MaskFile {mx in MXs, my in MYs};
+
+read {mx in MXs, my in MYs} MaskFile[mx,my] < ("/astro/opticslab1/Users/Mamadou/AMPL/BPLC/Pupil Data File/CircPupil_N=00" & M & "_obs=00_center_half.dat"); 
+close ("/astro/opticslab1/Users/Mamadou/AMPL/BPLC/Pupil Data File/CircPupil_N=00" & M & "_obs=00_center_half.dat");
+
+# Loading Lyot stop
+param LyotFile {x in Xs,y in Ys};
+
+read {x in Xs,y in Ys} LyotFile[x,y] < ("/astro/opticslab1/Users/Mamadou/AMPL/BPLC/Pupil Data File/IRISAOcirc/HiCAT-LyotStop_N=0250_center_half_BW.dat"); # Loading Lyot stop
+close ("/astro/opticslab1/Users/Mamadou/AMPL/BPLC/Pupil Data File/IRISAOcirc/HiCAT-LyotStop_N=0250_center_half_BW.dat");
+
+param LyotNoToleranceFile {x in Xs,y in Ys};
+read {x in Xs,y in Ys} LyotNoToleranceFile[x,y] < ("/astro/opticslab1/Users/Mamadou/AMPL/BPLC/Pupil Data File/IRISAOcirc/HiCAT-LyotStop-NoTolerance_N=0250_center_half_BW.dat"); # Loading Lyot stop
+close ("/astro/opticslab1/Users/Mamadou/AMPL/BPLC/Pupil Data File/IRISAOcirc/HiCAT-LyotStop-NoTolerance_N=0250_center_half_BW.dat");
+
+param LyotToleranceFile {x in Xs,y in Ys};
+read {x in Xs,y in Ys} LyotToleranceFile[x,y] < ("/astro/opticslab1/Users/Mamadou/AMPL/BPLC/Pupil Data File/IRISAOcirc/HiCAT-LyotStop-Tolerance_N=0250_center_half_BW.dat"); # Loading Lyot stop tolerance
+close ("/astro/opticslab1/Users/Mamadou/AMPL/BPLC/Pupil Data File/IRISAOcirc/HiCAT-LyotStop-Tolerance_N=0250_center_half_BW.dat");
+
+
+#---------------------
+set Pupil := setof {x in Xs, y in Ys: PupilFile[x,y] != 0} (x,y);
+set Mask := setof {mx in MXs, my in MYs: MaskFile[mx,my] != 0} (mx,my);
+set Lyot := setof {x in Xs, y in Ys: LyotFile[x,y] != 0} (x,y);
+
+set LyotNoTolerance := setof {x in Xs, y in Ys: LyotNoToleranceFile[x,y] != 0.} (x,y);
+set LyotTolerance := setof {x in Xs, y in Ys: LyotToleranceFile[x,y] != 0.} (x,y);
+
+
+param TR := sum {x in Xs, y in Ys} PupilFile[x,y]*dx*dy; # Transmission of the Pupil. Used for calibration.
+
+var A {x in Xs, y in Ys} >= 0, <= 1, := 0.5;
+
+#---------------------
+
+set Xis := setof {i in -Nimg..Nimg-1 by 1} i*dxi;
+set Etas := setof {j in 0..Nimg-1 by 1} j*deta;
+
+set DarkHole := setof {xi in Xis, eta in Etas: sqrt(xi^2+eta^2) >= rho0 && sqrt(xi^2+eta^2) <= rho1} (xi,eta); # Only for 360deg masks.
+set PSFCore := setof {xi in Xis, eta in Etas: sqrt(xi^2+eta^2) >= 0 && sqrt(xi^2+eta^2) < rho0} (xi,eta); # Only for 360deg masks.
+set InsideArea := setof {xi in Xis, eta in Etas: sqrt(xi^2+eta^2) >= 0 && sqrt(xi^2+eta^2) <= rho1} (xi,eta); # Only for 360deg masks.
+
+
+#---------------------
+var EBm_cx {x in Xs, my in MYs, lam in Ls} := 0.0;
+var EBm_real {mx in MXs, my in MYs, lam in Ls} := 0.0;
+var EBm_imag {mx in MXs, my in MYs, lam in Ls} := 0.0;
+
+subject to st_EBm_cx {x in Xs, my in MYs, lam in Ls}: EBm_cx[x,my,lam] = 2.*sum {y in Ys: (x,y) in Pupil} A[x,y]*PupilFile[x,y]*cos(2*pi*y*my*(lam0/lam))*dy;
+subject to st_EBm_real {(mx,my) in Mask, lam in Ls}: EBm_real[mx,my,lam] = (lam0/lam)*sum {x in Xs} EBm_cx[x,my,lam]*cos(2*pi*x*mx*(lam0/lam))*dx;
+subject to st_EBm_imag {(mx,my) in Mask, lam in Ls}: EBm_imag[mx,my,lam] = (lam0/lam)*sum {x in Xs} -EBm_cx[x,my,lam]*sin(2*pi*x*mx*(lam0/lam))*dx;
+
+#---------------------
+var ECm1_Bmreal_cx {mx in MXs, y in Ys, lam in Ls} := 0.0;
+var ECm1_real {x in Xs, y in Ys, lam in Ls} := 0.0;
+var ECm1_imag {x in Xs, y in Ys, lam in Ls} := 0.0;
+
+subject to st_ECm1_Bmreal_cx {mx in MXs, y in Ys, lam in Ls}: ECm1_Bmreal_cx[mx,y,lam] = 2.*sum {my in MYs: (mx,my) in Mask} EBm_real[mx,my,lam]*cos(2*pi*y*my*(lam0/lam))*dmy;
+
+#subject to st_ECm1_real {(x,y) in Lyot, lam in Ls}: ECm1_real[x,y,lam] = (lam0/lam)*sum {mx in MXs} ECm1_Bmreal_cx[mx,y,lam]*cos(2*pi*x*mx*(lam0/lam))*dmx;
+#subject to st_ECm1_imag {(x,y) in Lyot, lam in Ls}: ECm1_imag[x,y,lam] = (lam0/lam)*sum {mx in MXs} ECm1_Bmreal_cx[mx,y,lam]*sin(2*pi*x*mx*(lam0/lam))*dmx;
+subject to st_ECm1_real {(x,y) in LyotNoTolerance, lam in Ls}: ECm1_real[x,y,lam] = (lam0/lam)*sum {mx in MXs} ECm1_Bmreal_cx[mx,y,lam]*cos(2*pi*x*mx*(lam0/lam))*dmx;
+subject to st_ECm1_imag {(x,y) in LyotNoTolerance, lam in Ls}: ECm1_imag[x,y,lam] = (lam0/lam)*sum {mx in MXs} ECm1_Bmreal_cx[mx,y,lam]*sin(2*pi*x*mx*(lam0/lam))*dmx;
+
+subject to st_ECm1_real_LyotTolerance_a {(x,y) in LyotTolerance, lam in Ls}: ECm1_real[x,y,lam] = (lam0/lam)*sum {mx in MXs} ECm1_Bmreal_cx[mx,y,lam]*cos(2*pi*x*mx*(lam0/lam))*dmx;
+subject to st_ECm1_imag_LyotTolerance_a {(x,y) in LyotTolerance, lam in Ls}: ECm1_imag[x,y,lam] = (lam0/lam)*sum {mx in MXs} ECm1_Bmreal_cx[mx,y,lam]*sin(2*pi*x*mx*(lam0/lam))*dmx;
+
+subject to st_ECm1_real_LyotTolerance_b {(x,y) in LyotTolerance, lam in Ls}: ECm1_real[x,y,lam] - A[x,y]*PupilFile[x,y]<= 10^(-3);
+subject to st_ECm1_real_LyotTolerance_c {(x,y) in LyotTolerance, lam in Ls}: ECm1_real[x,y,lam] - A[x,y]*PupilFile[x,y]>= -10^(-3);
+subject to st_ECm1_imag_LyotTolerance_b {(x,y) in LyotTolerance, lam in Ls}: ECm1_imag[x,y,lam] - A[x,y]*PupilFile[x,y]<= 10^(-3);
+subject to st_ECm1_imag_LyotTolerance_c {(x,y) in LyotTolerance, lam in Ls}: ECm1_imag[x,y,lam] - A[x,y]*PupilFile[x,y]>= -10^(-3);
+
+
+var ECm2_Bmimag_cx {mx in MXs, y in Ys, lam in Ls} := 0.0;
+var ECm2_real {x in Xs, y in Ys, lam in Ls} := 0.0;
+var ECm2_imag {x in Xs, y in Ys, lam in Ls} := 0.0;
+
+subject to st_ECm2_Bmimag_cx {mx in MXs, y in Ys, lam in Ls}: ECm2_Bmimag_cx[mx,y,lam] = 2.*sum {my in MYs: (mx,my) in Mask} EBm_imag[mx,my,lam]*cos(2*pi*y*my*(lam0/lam))*dmy;
+
+#subject to st_ECm2_real {(x,y) in Lyot, lam in Ls}: ECm2_real[x,y,lam] = (lam0/lam)*sum {mx in MYs} ECm2_Bmimag_cx[mx,y,lam]*cos(2*pi*x*mx*(lam0/lam))*dmx;
+#subject to st_ECm2_imag {(x,y) in Lyot, lam in Ls}: ECm2_imag[x,y,lam] = (lam0/lam)*sum {mx in MYs} ECm2_Bmimag_cx[mx,y,lam]*sin(2*pi*x*mx*(lam0/lam))*dmx;
+subject to st_ECm2_real {(x,y) in LyotNoTolerance, lam in Ls}: ECm2_real[x,y,lam] = (lam0/lam)*sum {mx in MYs} ECm2_Bmimag_cx[mx,y,lam]*cos(2*pi*x*mx*(lam0/lam))*dmx;
+subject to st_ECm2_imag {(x,y) in LyotNoTolerance, lam in Ls}: ECm2_imag[x,y,lam] = (lam0/lam)*sum {mx in MYs} ECm2_Bmimag_cx[mx,y,lam]*sin(2*pi*x*mx*(lam0/lam))*dmx;
+
+subject to st_ECm2_real_LyotTolerance_a {(x,y) in LyotTolerance, lam in Ls}: ECm2_real[x,y,lam] = (lam0/lam)*sum {mx in MYs} ECm2_Bmimag_cx[mx,y,lam]*cos(2*pi*x*mx*(lam0/lam))*dmx;
+subject to st_ECm2_imag_LyotTolerance_a {(x,y) in LyotTolerance, lam in Ls}: ECm2_imag[x,y,lam] = (lam0/lam)*sum {mx in MYs} ECm2_Bmimag_cx[mx,y,lam]*sin(2*pi*x*mx*(lam0/lam))*dmx;
+
+subject to st_ECm2_real_LyotTolerance_b {(x,y) in LyotTolerance, lam in Ls}: ECm2_real[x,y,lam] - A[x,y]*PupilFile[x,y]<= 10^(-3);
+subject to st_ECm2_real_LyotTolerance_c {(x,y) in LyotTolerance, lam in Ls}: ECm2_real[x,y,lam] - A[x,y]*PupilFile[x,y]>= -10^(-3);
+subject to st_ECm2_imag_LyotTolerance_b {(x,y) in LyotTolerance, lam in Ls}: ECm2_imag[x,y,lam] - A[x,y]*PupilFile[x,y]<= 10^(-3);
+subject to st_ECm2_imag_LyotTolerance_c {(x,y) in LyotTolerance, lam in Ls}: ECm2_imag[x,y,lam] - A[x,y]*PupilFile[x,y]>= -10^(-3);
+
+
+var ECm_real {x in Xs, y in Ys, lam in Ls} := 0.0;
+var ECm_imag {x in Xs, y in Ys, lam in Ls} := 0.0;
+subject to st_ECm_real {x in Xs, y in Ys, lam in Ls}: ECm_real[x,y,lam] = ECm1_real[x,y,lam]-ECm2_imag[x,y,lam];
+subject to st_ECm_imag {x in Xs, y in Ys, lam in Ls}: ECm_imag[x,y,lam] = ECm1_imag[x,y,lam]+ECm2_real[x,y,lam];
+
+
+#---------------------
+var ED1_ECmreal_cx {x in Xs, eta in Etas, lam in Ls} := 0.0;
+var ED1_real {xi in Xis, eta in Etas, lam in Ls} := 0.0;
+var ED1_imag {xi in Xis, eta in Etas, lam in Ls} := 0.0;
+
+subject to st_ED1_ECmreal_cx {x in Xs, eta in Etas, lam in Ls}: ED1_ECmreal_cx[x,eta,lam] = 2.*sum {y in Ys: (x,y) in Lyot} (A[x,y]*PupilFile[x,y]-ECm_real[x,y,lam])*cos(2*pi*y*eta*(lam0/lam))*dy;
+
+subject to st_ED1_real {(xi, eta) in InsideArea, lam in Ls}: ED1_real[xi,eta,lam] = (lam0/lam)*sum {x in Xs} ED1_ECmreal_cx[x,eta,lam]*cos(2*pi*x*xi*(lam0/lam))*dx;
+subject to st_ED1_imag {(xi, eta) in InsideArea, lam in Ls}: ED1_imag[xi,eta,lam] = (lam0/lam)*sum {x in Xs} -ED1_ECmreal_cx[x,eta,lam]*sin(2*pi*x*xi*(lam0/lam))*dx;
+
+
+var ED2_ECmimag_cx {x in Xs, eta in Etas, lam in Ls} := 0.0;
+var ED2_real {xi in Xis, eta in Etas, lam in Ls} := 0.0;
+var ED2_imag {xi in Xis, eta in Etas, lam in Ls} := 0.0;
+
+subject to st_ED2_ECmimag_cx {x in Xs, eta in Etas, lam in Ls}: ED2_ECmimag_cx[x,eta,lam] = 2.*sum {y in Ys: (x,y) in Lyot} (-ECm_imag[x,y,lam])*cos(2*pi*y*eta*(lam0/lam))*dy;
+
+subject to st_ED2_real {(xi, eta) in InsideArea, lam in Ls}: ED2_real[xi,eta,lam] = (lam0/lam)*sum {x in Xs} ED2_ECmimag_cx[x,eta,lam]*cos(2*pi*x*xi*(lam0/lam))*dx;
+subject to st_ED2_imag {(xi, eta) in InsideArea, lam in Ls}: ED2_imag[xi,eta,lam] = (lam0/lam)*sum {x in Xs} -ED2_ECmimag_cx[x,eta,lam]*sin(2*pi*x*xi*(lam0/lam))*dx;
+
+
+var ED_real {xi in Xis, eta in Etas, lam in Ls} := 0.0;
+var ED_imag {xi in Xis, eta in Etas, lam in Ls} := 0.0;
+subject to st_ED_real {(xi, eta) in InsideArea, lam in Ls}: ED_real[xi,eta,lam] = ED1_real[xi,eta,lam]-ED2_imag[xi,eta,lam];
+subject to st_ED_imag {(xi, eta) in InsideArea, lam in Ls}: ED_imag[xi,eta,lam] = ED1_imag[xi,eta,lam]+ED2_real[xi,eta,lam];
+
+
+#---------------------
+var ED00_real := 0.0;
+subject to st_ED00_real: ED00_real = 2.*sum {x in Xs, y in Ys: (x,y) in Lyot} (A[x,y]*PupilFile[x,y])*dx*dy;
+
+
+#---------------------
+maximize throughput: sum{(x,y) in Pupil} A[x,y]*dx*dy/TR;
+
+subject to sidelobe_zero_real_pos {(xi,eta) in DarkHole, lam in Ls}: ED_real[xi,eta,lam] <= 10^(-c/2)*ED00_real/sqrt(2.);
+subject to sidelobe_zero_real_neg {(xi,eta) in DarkHole, lam in Ls}: ED_real[xi,eta,lam] >= -10^(-c/2)*ED00_real/sqrt(2.);
+subject to sidelobe_zero_imag_pos {(xi,eta) in DarkHole, lam in Ls}: ED_imag[xi,eta,lam] <= 10^(-c/2)*ED00_real/sqrt(2.);
+subject to sidelobe_zero_imag_neg {(xi,eta) in DarkHole, lam in Ls}: ED_imag[xi,eta,lam] >= -10^(-c/2)*ED00_real/sqrt(2.);
+
+subject to sidelobe_zero_real_pos_core {(xi,eta) in PSFCore, lam in Ls}: ED_real[xi,eta,lam] <= 10^((-c+2)/2)*ED00_real/sqrt(2.);
+subject to sidelobe_zero_real_neg_core {(xi,eta) in PSFCore, lam in Ls}: ED_real[xi,eta,lam] >= -10^((-c+2)/2)*ED00_real/sqrt(2.);
+subject to sidelobe_zero_imag_pos_core {(xi,eta) in PSFCore, lam in Ls}: ED_imag[xi,eta,lam] <= 10^((-c+2)/2)*ED00_real/sqrt(2.);
+subject to sidelobe_zero_imag_neg_core {(xi,eta) in PSFCore, lam in Ls}: ED_imag[xi,eta,lam] >= -10^((-c+2)/2)*ED00_real/sqrt(2.);
+
+
+
+option times 1;
+option gentimes 1;
+option show_stats 1;
+option TMPDIR '/ssdfast1/tmp/';
+option solver gurobi;
+#option gurobi_options "outlev=1";
+option gurobi_options "outlev=1 lpmethod=2 crossover=0";
+
+
+solve;
+display solve_result_num, solve_result;
+
+#---------------------
+printf {x in Xs, y in Ys}: "%15g %15g %15g \n", x, y, A[x,y] > ("/astro/opticslab1/Users/Mamadou/AMPL/BPLC/Pupil Data File/IRISAOcirc/HiCAT-Apodizer_N=0250_center_half_BW_mono_test1.dat");

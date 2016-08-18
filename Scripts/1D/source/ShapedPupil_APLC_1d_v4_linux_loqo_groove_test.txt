@@ -1,0 +1,67 @@
+load amplgsl.dll;
+function gsl_sf_bessel_J0;
+function gsl_sf_bessel_J1;
+
+param pi := 4*atan(1);
+
+param c := 10;
+param obs := 0.2;
+param lsobs := 0.4;
+param gro := 0.7;
+
+param Rmask := 4.0;
+param IWA := 3.5;param OWA := 20.0;
+
+param N := 1000;			# discretization parameter (pupil)
+param M := 100;				# discretization parameter (mask)
+param Nimg := 500;			# discretization parameter (image)
+param Fmax := 50;
+
+param dr := 1/(2*N);
+param dv := Fmax/Nimg;
+param dm := 2*Rmask/(2*M);
+
+
+set Rs := setof {j in 0.5..N-0.5} j*dr;
+set Ms := setof {k in 0..M} k*dm;
+set Vs := setof {l in 0..Nimg} l*dv;
+
+#set Pupil := setof {r in Rs: r<0.5 && r> obs/2} r;
+set Pupil := setof {r in Rs: (r< (gro-0.01)/2 && r> obs/2) || (r<0.5 && r> (gro+0.01)/2) } r;
+set Lyot := setof {r in Rs: r<0.5 && r> lsobs/2} r;
+param TR := sum {r in Rs} 2*pi*r*dr;
+
+var A {r in Rs} <=1, >=0, binary, :=0.5;
+var LS {r in Rs} <=1, >=0, binary, :=0.5;
+
+set Xis ordered;
+let Xis := setof {j in 0..Nimg} IWA+j*(OWA-IWA)/Nimg;
+
+var EBm {m in Ms} := 0.0;
+subject to st_EBm {m in Ms}: EBm[m] = sum {r in Pupil} 2*pi*r*A[r]*gsl_sf_bessel_J0(2*pi*m*r)*dr;
+
+var ECm {r in Pupil} := 0.0;
+subject to st_ECm {r in Pupil}: ECm[r] = sum {m in Ms} 2*pi*m*EBm[m]*gsl_sf_bessel_J0(2*pi*m*r)*dm;
+
+var ED {xi in Xis} := 0.0;
+subject to st_ED {xi in Xis}: ED[xi] = sum {r in Lyot} 2*pi*r*(A[r]-ECm[r])*gsl_sf_bessel_J0(2*pi*xi*r)*dr;
+
+var ED0 {v in Vs} := 0.0;
+subject to st_ED0 {v in Vs}: ED0[v] = sum {r in Lyot} 2*pi*r*A[r]*gsl_sf_bessel_J0(2*pi*v*r)*dr;
+
+var ED00 = ED0[0];
+
+maximize throughput: sum {r in Rs} 2*pi*r*A[r]*dr/TR;
+
+subject to sidelobe_zero_real_pos {xi in Xis}: ED[xi] <= 10^(-c/2)*ED00;
+subject to sidelobe_zero_real_neg {xi in Xis}: -10^(-c/2)*ED00 <= ED[xi];
+
+option times 1;option gentimes 1;option show_stats 1;
+
+option solver loqo;
+
+solve;
+display solve_result_num, solve_result;
+
+
+printf {r in Rs}: "%15g %15g \n", r, A[r] > ("/astro/opticslab1/hicat/AMPL/BPLC/Pupil Data File/BPLC_obs=" & round(obs*100) & "_FPM=" & round(Rmask*100) & "_ls=" & round(lsobs*100) & "_IWA=" & IWA*10 & "_OWA=" & OWA*10 & "_C=" & c & "_1D_N=" & N & "_loqo_apod_gro.dat");

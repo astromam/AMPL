@@ -1,0 +1,342 @@
+load amplgsl.dll;
+#function gsl_sf_bessel_J0;
+#function gsl_sf_bessel_J1;
+
+
+#---------------------
+
+param pi := 4*atan(1);
+
+#---------------------
+param c :=8;
+param cc :=6;
+param ccc :=7;
+
+#---------------------
+param Rmask := 6.054/2;
+
+param rho0 := 2.5;
+param rho1 := 10.0; #30.0;
+param rho2 := 45.0;
+
+#---------------------
+param N := 300;				# discretization parameter (pupil)
+param M := 50;				# discretization parameter (mask)
+
+param Nimg := 120; #60; # 84; 			# discretization parameter (image)
+param Fmax := 50; #25; # 35; 
+
+#---------------------
+param bw := 0.0;
+param lam0 := 1.;
+param dl := bw*lam0;
+param Nlam := 1;
+
+#---------------------
+param obs := 20;
+param spiders :=00;
+param lsobs := 40;
+param lsspiders :=01;
+param gaps :=00;
+param lsgaps :=00;
+
+#---------------------
+param Normterm := 1.;
+
+param OD :=0.98;
+
+#---------------------
+param CoeffOverSizePup :=1.0*OD;
+
+#---------------------
+### aperture with obstruction
+param PupilFile {1..N,1..N};
+
+read {i in 1..N,j in 1..N} PupilFile[i,j] < ("/astro/opticslab1/Users/Mamadou/AMPL/BPLC/Pupil Data File/CircPupil_N=0" & N & "_obs=" & obs & "_center_quarter" & ".dat"); # Loading Pupil
+close ("/astro/opticslab1/Users/Mamadou/AMPL/BPLC/Pupil Data File/CircPupil_N=0" & N & "_obs=" & obs & "_center_quarter" & ".dat");
+
+param MaskFile {1..M,1..M};
+
+read {i in 1..M,j in 1..M} MaskFile[i,j] < ("/astro/opticslab1/Users/Mamadou/AMPL/BPLC/Pupil Data File/CircPupil_N=00" & M & "_obs=00_center_quarter.dat"); # Loading Mask
+close ("/astro/opticslab1/Users/Mamadou/AMPL/BPLC/Pupil Data File/CircPupil_N=00" & M & "_obs=00_center_quarter.dat");
+
+#param LyotFile {i in 1..N,j in 1..N};
+
+#read {i in 1..N,j in 1..N} LyotFile[i,j] < ("/astro/opticslab1/Users/Mamadou/AMPL/BPLC/Pupil Data File/CircPupil_N=0" & N & "_obs=" & lsobs & "_center_quarter" & ".dat"); # Loading Lyot stop
+#close ("/astro/opticslab1/Users/Mamadou/AMPL/BPLC/Pupil Data File/CircPupil_N=0" & N & "_obs=" & lsobs & "_center_quarter" & ".dat");
+
+param LyotFile {i in 1..N,j in 1..N};
+read {i in 1..N,j in 1..N} LyotFile[i,j] < ("/astro/opticslab1/Users/Mamadou/AMPL/BPLC/Pupil Data File/CircPupil_N=0" & N & "_obs=" & lsobs  & "_OD=0" & OD*100 & "_center_quarter_spiders=01.dat"); # Loading Lyot stop
+close ("/astro/opticslab1/Users/Mamadou/AMPL/BPLC/Pupil Data File/CircPupil_N=0" & N & "_obs=" & lsobs & "_OD=0" & OD*100 & "_center_quarter_spiders=01.dat");
+
+param LyotNoToleranceFile {i in 1..N,j in 1..N};
+read {i in 1..N,j in 1..N} LyotNoToleranceFile[i,j] < ("/astro/opticslab1/Users/Mamadou/AMPL/BPLC/Pupil Data File/CircPupil_N=0" & N & "_obs=" & lsobs  & "_OD=0" & OD*100 & "_center_quarter_spiders=01_NoTolerance.dat"); # Loading Lyot stop
+close ("/astro/opticslab1/Users/Mamadou/AMPL/BPLC/Pupil Data File/CircPupil_N=0" & N & "_obs=" & lsobs & "_OD=0" & OD*100 & "_center_quarter_spiders=01_NoTolerance.dat");
+
+param LyotToleranceFile {i in 1..N,j in 1..N};
+read {i in 1..N,j in 1..N} LyotToleranceFile[i,j] < ("/astro/opticslab1/Users/Mamadou/AMPL/BPLC/Pupil Data File/CircPupil_N=0" & N & "_obs=" & lsobs  & "_OD=0" & OD*100 & "_center_quarter_spiders=01_Tolerance.dat"); # Loading Lyot stop tolerance
+close ("/astro/opticslab1/Users/Mamadou/AMPL/BPLC/Pupil Data File/CircPupil_N=0" & N & "_obs=" & lsobs & "_OD=0" & OD*100 & "_center_quarter_spiders=01_Tolerance.dat");
+
+
+#---------------------
+### aperture with obstruction and spiders
+#param PupilFile {1..N,1..N};
+
+#read {i in 1..N,j in 1..N} PupilFile[i,j] < ("/astro/opticslab1/Users/Mamadou/AMPL/BPLC/Pupil Data File/CircPupil_N=0" & N & "_obs=" & obs & "_center_quarter_spiders3=0" & spiders & ".dat"); # Loading Pupil
+#close ("/astro/opticslab1/Users/Mamadou/AMPL/BPLC/Pupil Data File/CircPupil_N=0" & N & "_obs=" & obs & "_center_quarter_spiders3=0" & spiders & ".dat");
+
+#param MaskFile {1..M,1..M};
+
+#read {i in 1..M,j in 1..M} MaskFile[i,j] < ("/astro/opticslab1/Users/Mamadou/AMPL/BPLC/Pupil Data File/CircPupil_N=00" & M & "_obs=00_center_quarter.dat"); # Loading Mask
+#close ("/astro/opticslab1/Users/Mamadou/AMPL/BPLC/Pupil Data File/CircPupil_N=00" & M & "_obs=00_center_quarter.dat");
+
+#param LyotFile {1..N,1..N};
+
+#read {i in 1..N,j in 1..N} LyotFile[i,j] < ("/astro/opticslab1/Users/Mamadou/AMPL/BPLC/Pupil Data File/CircPupil_N=0" & N & "_obs=" & lsobs & "_center_quarter_spiders3=0" & lsspiders & ".dat"); # Loading Lyot stop
+#close ("/astro/opticslab1/Users/Mamadou/AMPL/BPLC/Pupil Data File/CircPupil_N=0" & N & "_obs=" & lsobs & "_center_quarter_spiders3=0" & lsspiders & ".dat");
+
+
+#---------------------
+### aperture with obstruction, spiders and segment gaps
+#param PupilFile {1..N,1..N};
+
+#read {i in 1..N,j in 1..N} PupilFile[i,j] < ("/astro/opticslab1/Users/Mamadou/AMPL/BPLC/Pupil Data File/CircPupil_N=0" & N & "_obs=0" & obs & "_center_quarter_spiders3=0" & spiders & "_gaps=0" & gaps & ".dat"); # Loading Pupil
+#close ("/astro/opticslab1/Users/Mamadou/AMPL/BPLC/Pupil Data File/CircPupil_N=0" & N & "_obs=0" & obs & "_center_quarter_spiders3=0" & spiders & "_gaps=0" & gaps & ".dat");
+
+#param PupilFile {1..N,1..N};
+
+#read {i in 1..N,j in 1..N} PupilFile[i,j] < ("/astro/opticslab1/Users/Mamadou/AMPL/BPLC/Pupil Data File/CircPupil_N=0" & N & "_obs=0" & obs & "_center_quarter_spiders=0" & spiders & "_gaps=0" & gaps & "_BW.dat"); # Loading Pupil
+#close ("/astro/opticslab1/Users/Mamadou/AMPL/BPLC/Pupil Data File/CircPupil_N=0" & N & "_obs=0" & obs & "_center_quarter_spiders=0" & spiders & "_gaps=0" & gaps & "_BW.dat");
+
+
+#param MaskFile {1..M,1..M};
+
+#read {i in 1..M,j in 1..M} MaskFile[i,j] < ("/astro/opticslab1/Users/Mamadou/AMPL/BPLC/Pupil Data File/CircPupil_N=00" & M & "_obs=00_center_quarter.dat"); # Loading Mask
+#close ("/astro/opticslab1/Users/Mamadou/AMPL/BPLC/Pupil Data File/CircPupil_N=00" & M & "_obs=00_center_quarter.dat");
+
+#param LyotFile {1..N,1..N};
+
+#read {i in 1..N,j in 1..N} LyotFile[i,j] < ("/astro/opticslab1/Users/Mamadou/AMPL/BPLC/Pupil Data File/CircPupil_N=0" & N & "_obs=" & lsobs & "_center_quarter_spiders3=0" & lsspiders  & "_gaps=0" & lsgaps & ".dat"); # Loading Lyot stop
+#close ("/astro/opticslab1/Users/Mamadou/AMPL/BPLC/Pupil Data File/CircPupil_N=0" & N & "_obs=" & lsobs & "_center_quarter_spiders3=0" & lsspiders  & "_lsgaps=0" & lsgaps & ".dat");
+
+#param LyotFile {1..N,1..N};
+
+#read {i in 1..N,j in 1..N} LyotFile[i,j] < ("/astro/opticslab1/Users/Mamadou/AMPL/BPLC/Pupil Data File/CircPupil_N=0" & N & "_obs=" & lsobs & "_center_quarter_spiders3=0" & lsspiders & ".dat"); # Loading Lyot stop
+close ("/astro/opticslab1/Users/Mamadou/AMPL/BPLC/Pupil Data File/CircPupil_N=0" & N & "_obs=" & lsobs & "_center_quarter_spiders3=0" & lsspiders & ".dat");
+
+#param LyotFile {1..N,1..N};
+#read {i in 1..N,j in 1..N} LyotFile[i,j] < ("/astro/opticslab1/Users/Mamadou/AMPL/BPLC/Pupil Data File/CircPupil_N=0" & N & "_obs=" & lsobs  & "_OD=0" & OD*100 & "_center_quarter_spiders3=0" & lsspiders & ".dat"); # Loading Lyot stop
+#close ("/astro/opticslab1/Users/Mamadou/AMPL/BPLC/Pupil Data File/CircPupil_N=0" & N & "_obs=" & lsobs & "_OD=0" & OD*100 & "_center_quarter_spiders3=0" & lsspiders & ".dat");
+
+#---------------------
+# steps in each plane
+param dx := 1/(2*N);
+
+param dy := dx;
+
+param dmx := 2*Rmask/(2*M);
+param dmy := dmx;
+
+param dxi := (Fmax/Nimg)*(1/CoeffOverSizePup);
+param deta := dxi;
+
+#---------------------
+# coordinate vectors in each plane
+set Xs := setof {i in 0.5..N-0.5 by 1} i*dx;
+set Ys := setof {j in 0.5..N-0.5 by 1} j*dy;
+
+set MXs := setof {i in 0.5..M-0.5 by 1} i*dmx;
+set MYs := setof {j in 0.5..M-0.5 by 1} j*dmy;
+
+#set Ls := setof {l in 1..Nlam} lam0*(1+((l-1)/(Nlam-1)-0.5)*dl);
+set Ls := setof {l in 1..Nlam} lam0;
+
+#---------------------
+set Pupil := setof {x in Xs, y in Ys: PupilFile[round(x/dx+0.5),round(y/dy+0.5)] != 0} (x,y);
+set Mask := setof {mx in MXs, my in MYs: MaskFile[round(mx/dmx+0.5),round(my/dmy+0.5)] != 0} (mx,my);
+set Lyot := setof {x in Xs, y in Ys: LyotFile[round(x/dx+0.5),round(y/dy+0.5)] != 0} (x,y);
+
+set LyotNoTolerance := setof {x in Xs, y in Ys: LyotNoToleranceFile[round(x/dx+0.5),round(y/dy+0.5)] != 0.} (x,y);
+set LyotTolerance := setof {x in Xs, y in Ys: LyotToleranceFile[round(x/dx+0.5),round(y/dy+0.5)] != 0.} (x,y);
+
+param TR := sum {i in 1..N, j in 1..N} PupilFile[i,j]*dx*dy; # Transmission of the Pupil. Used for calibration.
+
+var A {x in Xs, y in Ys} >= 0, <= 1, := 0.5;
+
+#---------------------
+
+set Xis := setof {i in 0..Nimg by 1} i*dxi; 
+
+set Etas := setof {j in 0..Nimg by 1} j*deta;
+set DarkHole := setof {xi in Xis, eta in Etas: sqrt(xi^2+eta^2) >= rho0 && sqrt(xi^2+eta^2) <= rho1} (xi,eta); # Only for 360deg masks.
+set PSFCore := setof {xi in Xis, eta in Etas: sqrt(xi^2+eta^2) >= 0 && sqrt(xi^2+eta^2) < rho0} (xi,eta); # Only for 360deg masks.
+
+#set InsideArea := setof {xi in Xis, eta in Etas: sqrt(xi^2+eta^2) >= 0 && sqrt(xi^2+eta^2) <= rho1} (xi,eta); # Only for 360deg masks.
+set InsideArea := setof {xi in Xis, eta in Etas: sqrt(xi^2+eta^2) >= 0 && sqrt(xi^2+eta^2) <= rho2} (xi,eta); # Only for 360deg masks.
+
+set PSFOuterWings := setof {xi in Xis, eta in Etas: sqrt(xi^2+eta^2) > rho1 && sqrt(xi^2+eta^2) <= rho2} (xi,eta); # Only for 360deg masks.
+
+#---------------------
+var EBm_real_X {mx in MXs, y in Ys, lam in Ls} := 0.0;
+var EBm_real {mx in MXs, my in MYs, lam in Ls} := 0.0;
+
+subject to st_EBm_real_X {mx in MXs, y in Ys, lam in Ls}: EBm_real_X[mx,y,lam] = 2.*sum {x in Xs: (x,y) in Pupil} A[x,y]*PupilFile[round(x/dx+0.5),round(y/dy+0.5)]*cos(2.*pi*x*mx*(lam0/lam))*dx;
+subject to st_EBm_real {(mx, my) in Mask, lam in Ls}: EBm_real[mx,my,lam] = 2.*(lam0/lam)*sum {y in Ys} EBm_real_X[mx,y,lam]*cos(2.*pi*y*my*(lam0/lam))*dy;
+
+
+#---------------------
+var ECm_real_X {x in Xs, my in MYs, lam in Ls} := 0.0;
+var ECm_real {x in Xs, y in Ys, lam in Ls} := 0.0;
+
+subject to st_ECm_real_X {x in Xs, my in MYs, lam in Ls}: ECm_real_X[x,my,lam] = 2.*sum {mx in MXs: (mx,my) in Mask} EBm_real[mx,my,lam]*cos(2.*pi*x*mx*(lam0/lam))*dmx;
+
+#subject to st_ECm_real {(x,y) in Lyot, lam in Ls}: ECm_real[x,y,lam] = 2.*(lam0/lam)*sum {my in MYs} ECm_real_X[x,my,lam]*cos(2.*pi*y*my*(lam0/lam))*dmy;
+
+subject to st_ECm_real_LyotNoTolerance {(x,y) in LyotNoTolerance, lam in Ls}: ECm_real[x,y,lam] = 2.*(lam0/lam)*sum {my in MYs} ECm_real_X[x,my,lam]*cos(2.*pi*y*my*(lam0/lam))*dmy;
+
+subject to st_ECm_real_LyotTolerance_a {(x,y) in LyotTolerance, lam in Ls}: ECm_real[x,y,lam] = 2.*(lam0/lam)*sum {my in MYs} ECm_real_X[x,my,lam]*cos(2.*pi*y*my*(lam0/lam))*dmy;
+#subject to st_ECm_real_LyotTolerance_b {(x,y) in LyotTolerance, lam in Ls}: ECm_real[x,y,lam] = A[x,y]*PupilFile[round(x/dx+0.5),round(y/dy+0.5)]; 
+
+subject to st_ECm_real_LyotTolerance_b {(x,y) in LyotTolerance, lam in Ls}: ECm_real[x,y,lam] - A[x,y]*PupilFile[round(x/dx+0.5),round(y/dy+0.5)]<= 10^(-3); 
+subject to st_ECm_real_LyotTolerance_c {(x,y) in LyotTolerance, lam in Ls}: ECm_real[x,y,lam] - A[x,y]*PupilFile[round(x/dx+0.5),round(y/dy+0.5)]>= -10^(-3); 
+
+
+#---------------------
+var ED_real_X {xi in Xis, y in Ys, lam in Ls} := 0.0;
+var ED_real {xi in Xis, eta in Etas, lam in Ls} := 0.0;
+
+subject to st_ED_real_X {xi in Xis, y in Ys, lam in Ls}: ED_real_X[xi,y,lam] = 2.*sum {x in Xs: (x,y) in Lyot} (A[x,y]*PupilFile[round(x/dx+0.5),round(y/dy+0.5)]-ECm_real[x,y,lam])*cos(2.*pi*x*xi*(lam0/lam))*dx;
+subject to st_ED_real {(xi, eta) in InsideArea, lam in Ls}: ED_real[xi,eta,lam] = 2.*(lam0/lam)*sum {y in Ys} ED_real_X[xi,y,lam]*cos(2.*pi*y*eta*(lam0/lam))*dy;
+
+#---------------------
+var ED00_real := 0.0;
+subject to st_ED00_real: ED00_real = 4.*sum {x in Xs, y in Ys: (x,y) in Lyot} (A[x,y]*PupilFile[round(x/dx+0.5),round(y/dy+0.5)])*dx*dy;
+
+
+#---------------------
+maximize throughput: sum{(x,y) in Pupil} A[x,y]*dx*dy/TR;
+
+subject to sidelobe_zero_real_pos {(xi,eta) in DarkHole, lam in Ls}: ED_real[xi,eta,lam] <= 10^(-c/2)*ED00_real/sqrt(2.); 
+subject to sidelobe_zero_real_neg {(xi,eta) in DarkHole, lam in Ls}: ED_real[xi,eta,lam] >= -10^(-c/2)*ED00_real/sqrt(2.);
+# sqrt(2.) factor is for margin purpose at all the wavelengths;
+
+subject to sidelobe_zero_real_pos_core {(xi,eta) in PSFCore, lam in Ls}: ED_real[xi,eta,lam] <= 10^((-cc)/2)*ED00_real/sqrt(2.); 
+subject to sidelobe_zero_real_neg_core {(xi,eta) in PSFCore, lam in Ls}: ED_real[xi,eta,lam] >= -10^((-cc)/2)*ED00_real/sqrt(2.);
+
+subject to sidelobe_zero_real_pos_wings {(xi,eta) in PSFOuterWings, lam in Ls}: ED_real[xi,eta,lam] <= 10^((-ccc)/2)*ED00_real/sqrt(2.); 
+subject to sidelobe_zero_real_neg_wings {(xi,eta) in PSFOuterWings, lam in Ls}: ED_real[xi,eta,lam] >= -10^((-ccc)/2)*ED00_real/sqrt(2.);
+
+
+
+option times 1;
+option gentimes 1;
+option show_stats 1;
+option TMPDIR '/ssdfast1/tmp';
+
+option solver gurobi;
+#option gurobi_options "outlev=1";
+option gurobi_options "outlev=1 lpmethod=2 crossover=0";
+#option gurobi_options "outlev=1 lpmethod=2 crossover=0 barhomogeneous=1";
+
+solve;
+display solve_result_num, solve_result;
+
+#---------------------
+printf {x in Xs, y in Ys}: "%15g %15g %15g \n", x, y, A[x,y] > ("/astro/opticslab1/Users/Mamadou/AMPL/BPLC/Pupil Data File/BPLC_obs=" & obs & "_sp=0" & spiders & "_FPM=" & round(Rmask*100) & "_ls=" & lsobs & "_lssp=0" & lsspiders & "_OD=0" & OD*100 & "_IWA=0" & rho0*10 & "_OWA=" & rho1*10 & "_BW=0" & round(bw*100) & "_C=0" & c & "_2D_N=0" & N & "_quarter_gurobi_Tolerance" & "_CCC=0" & ccc & "_v11.dat");
+
+#printf {mx in MXs, my in MYs}: "%15g %15g %15g \n", mx, my, EBm_real[mx,my,lam0] > ("/astro/opticslab1/Users/Mamadou/AMPL/BPLC/Pupil Data File/BPLC_obs=" & obs & "_sp=0" & spiders & "_FPM=" & round(Rmask*100) & "_ls=" & lsobs & "_lssp=0" & lsspiders & "_OD=0" & OD*100 & "_IWA=0" & rho0*10 & "_OWA=" & rho1*10 & "_BW=" & round(bw*100) & "_C=0" & c & "_2D_N=0" & N & "_quarter_gurobi_EBm_real_Tolerance" & "_CCC=0" & ccc & ".dat");
+
+#printf {x in Xs, y in Ys}: "%15g %15g %15g \n", x, y, ECm_real[x,y,lam0] > ("/astro/opticslab1/Users/Mamadou/AMPL/BPLC/Pupil Data File/BPLC_obs=" & obs & "_sp=0" & spiders & "_FPM=" & round(Rmask*100) & "_ls=" & lsobs & "_lssp=0" & lsspiders & "_OD=0" & OD*100 & "_IWA=0" & rho0*10 & "_OWA=" & rho1*10 & "_BW=" & round(bw*100) & "_C=0" & c & "_2D_N=0" & N & "_quarter_gurobi_ECm_real_Tolerance" & "_CCC=0" & ccc & ".dat");
+
+#printf {xi in Xis, eta in Etas}: "%15g %15g %15g \n", xi, eta, ED_real[xi,eta,lam0] > ("/astro/opticslab1/Users/Mamadou/AMPL/BPLC/Pupil Data File/BPLC_obs=" & obs & "_sp=0" & spiders & "_FPM=" & round(Rmask*100) & "_ls=" & lsobs & "_lssp=0" & lsspiders & "_OD=0" & OD*100 & "_IWA=0" & rho0*10 & "_OWA=" & rho1*10 & "_BW=" & round(bw*100) & "_C=0" & c & "_2D_N=0" & N & "_quarter_gurobi_ED_real_Tolerance" & "_CCC=0" & ccc & ".dat");
+
+
+#---------------------
+### aperture with obstruction and spiders
+#printf {x in Xs, y in Ys}: "%15g %15g %15g \n", x, y, A[x,y] > ("/astro/opticslab1/Users/Mamadou/AMPL/BPLC/Pupil Data File/BPLC_obs=" & obs & "_sp3=0" & spiders & "_FPM=" & round(Rmask*100) & "_ls=" & lsobs & "_lssp=0" & lsspiders & "_OD=0" & OD*100 & "_IWA=0" & rho0*10 & "_OWA=" & rho1*10 & "_BW=" & round(bw*100) & "_C=0" & c & "_2D_N=0" & N & "_quarter_gurobi.dat");
+
+
+#printf {mx in MXs, my in MYs}: "%15g %15g %15g \n", mx, my, EBm_real[mx,my,lam0] > ("/astro/opticslab1/Users/Mamadou/AMPL/BPLC/Pupil Data File/BPLC_obs=" & obs & "_sp3=0" & spiders & "_FPM=" & round(Rmask*100) & "_ls=" & lsobs & "_lssp=0" & lsspiders  & "_OD=0" & OD*100 & "_IWA=0" & rho0*10 & "_OWA=" & rho1*10 & "_BW=" & round(bw*100) & "_C=0" & c & "_2D_N=0" & N & "_quarter_gurobi_EBm_real.dat");
+
+#printf {x in Xs, y in Ys}: "%15g %15g %15g \n", x, y, ECm_real[x,y,lam0] > ("/astro/opticslab1/Users/Mamadou/AMPL/BPLC/Pupil Data File/BPLC_obs=" & obs & "_sp3=0" & spiders & "_FPM=" & round(Rmask*100) & "_ls=" & lsobs & "_lssp=0" & lsspiders  & "_OD=0" & OD*100 & "_IWA=0" & rho0*10 & "_OWA=" & rho1*10 & "_BW=" & round(bw*100) & "_C=0" & c & "_2D_N=0" & N & "_quarter_gurobi_ECm_real.dat");
+
+#printf {xi in Xis, eta in Etas}: "%15g %15g %15g \n", xi, eta, ED_real[xi,eta,lam0] > ("/astro/opticslab1/Users/Mamadou/AMPL/BPLC/Pupil Data File/BPLC_obs=" & obs & "_sp3=0" & spiders   & "_FPM=" & round(Rmask*100) & "_ls=" & lsobs & "_lssp=0" & lsspiders  & "_OD=0" & OD*100 & "_IWA=0" & rho0*10 & "_OWA=" & rho1*10 & "_BW=" & round(bw*100) & "_C=0" & c & "_2D_N=0" & N & "_quarter_gurobi_ED_real.dat");
+
+
+#---------------------
+### aperture with obstruction, spiders, gaps, without OD
+#printf {x in Xs, y in Ys}: "%15g %15g %15g \n", x, y, A[x,y] > ("/astro/opticslab1/Users/Mamadou/AMPL/BPLC/Pupil Data File/BPLC_obs=" & obs & "_sp3=0" & spiders  & "_gaps=0" & gaps & "_FPM=" & round(Rmask*100) & "_ls=" & lsobs & "_lssp=0" & lsspiders  & "_IWA=0" & rho0*10 & "_OWA=" & rho1*10 & "_BW=" & round(bw*100) & "_C=0" & c & "_2D_N=0" & N & "_quarter_gurobi.dat");
+
+
+#printf {mx in MXs, my in MYs}: "%15g %15g %15g \n", mx, my, EBm_real[mx,my,lam0] > ("/astro/opticslab1/Users/Mamadou/AMPL/BPLC/Pupil Data File/BPLC_obs=" & obs & "_sp3=0" & spiders  & "_gaps=0" & gaps & "_FPM=" & round(Rmask*100) & "_ls=" & lsobs & "_lssp=0" & lsspiders  & "_IWA=0" & rho0*10 & "_OWA=" & rho1*10 & "_BW=" & round(bw*100) & "_C=0" & c & "_2D_N=0" & N & "_quarter_gurobi_EBm_real.dat");
+
+#printf {x in Xs, y in Ys}: "%15g %15g %15g \n", x, y, ECm_real[x,y,lam0] > ("/astro/opticslab1/Users/Mamadou/AMPL/BPLC/Pupil Data File/BPLC_obs=" & obs & "_sp3=0" & spiders  & "_gaps=0" & gaps & "_FPM=" & round(Rmask*100) & "_ls=" & lsobs & "_lssp=0" & lsspiders  & "_IWA=0" & rho0*10 & "_OWA=" & rho1*10 & "_BW=" & round(bw*100) & "_C=0" & c & "_2D_N=0" & N & "_quarter_gurobi_ECm_real.dat");
+
+#printf {xi in Xis, eta in Etas}: "%15g %15g %15g \n", xi, eta, ED_real[xi,eta,lam0] > ("/astro/opticslab1/Users/Mamadou/AMPL/BPLC/Pupil Data File/BPLC_obs=" & obs & "_sp3=0" & spiders  & "_gaps=0" & gaps & "_FPM=" & round(Rmask*100) & "_ls=" & lsobs & "_lssp=0" & lsspiders  & "_IWA=0" & rho0*10 & "_OWA=" & rho1*10 & "_BW=" & round(bw*100) & "_C=0" & c & "_2D_N=0" & N & "_quarter_gurobi_ED_real.dat");
+
+#printf {mx in MXs, my in MYs}: "%15g %15g %15g \n", mx, my, EBm_real[mx,my,0.95*lam0] > ("/astro/opticslab1/Users/Mamadou/AMPL/BPLC/Pupil Data File/BPLC_obs=" & obs & "_sp3=0" & spiders  & "_gaps=0" & gaps & "_FPM=" & round(Rmask*100) & "_ls=" & lsobs & "_lssp=0" & lsspiders  & "_IWA=0" & rho0*10 & "_OWA=" & rho1*10 & "_BW=" & round(bw*100) & "_C=0" & c & "_2D_N=0" & N & "_quarter_gurobi_EBm_real_095lam0.dat");
+
+#printf {x in Xs, y in Ys}: "%15g %15g %15g \n", x, y, ECm_real[x,y,0.95*lam0] > ("/astro/opticslab1/Users/Mamadou/AMPL/BPLC/Pupil Data File/BPLC_obs=" & obs & "_sp3=0" & spiders  & "_gaps=0" & gaps & "_FPM=" & round(Rmask*100) & "_ls=" & lsobs & "_lssp=0" & lsspiders  & "_IWA=0" & rho0*10 & "_OWA=" & rho1*10 & "_BW=" & round(bw*100) & "_C=0" & c & "_2D_N=0" & N & "_quarter_gurobi_ECm_real_095lam0.dat");
+
+#printf {xi in Xis, eta in Etas}: "%15g %15g %15g \n", xi, eta, ED_real[xi,eta,0.95*lam0] > ("/astro/opticslab1/Users/Mamadou/AMPL/BPLC/Pupil Data File/BPLC_obs=" & obs & "_sp3=0" & spiders  & "_gaps=0" & gaps & "_FPM=" & round(Rmask*100) & "_ls=" & lsobs & "_lssp=0" & lsspiders  & "_IWA=0" & rho0*10 & "_OWA=" & rho1*10 & "_BW=" & round(bw*100) & "_C=0" & c & "_2D_N=0" & N & "_quarter_gurobi_ED_real_095lam0.dat");
+
+#printf {mx in MXs, my in MYs}: "%15g %15g %15g \n", mx, my, EBm_real[mx,my,1.05*lam0] > ("/astro/opticslab1/Users/Mamadou/AMPL/BPLC/Pupil Data File/BPLC_obs=" & obs & "_sp3=0" & spiders  & "_gaps=0" & gaps & "_FPM=" & round(Rmask*100) & "_ls=" & lsobs & "_lssp=0" & lsspiders  & "_IWA=0" & rho0*10 & "_OWA=" & rho1*10 & "_BW=" & round(bw*100) & "_C=0" & c & "_2D_N=0" & N & "_quarter_gurobi_EBm_real_105lam0.dat");
+
+#printf {x in Xs, y in Ys}: "%15g %15g %15g \n", x, y, ECm_real[x,y,1.05*lam0] > ("/astro/opticslab1/Users/Mamadou/AMPL/BPLC/Pupil Data File/BPLC_obs=" & obs & "_sp3=0" & spiders  & "_gaps=0" & gaps & "_FPM=" & round(Rmask*100) & "_ls=" & lsobs & "_lssp=0" & lsspiders  & "_IWA=0" & rho0*10 & "_OWA=" & rho1*10 & "_BW=" & round(bw*100) & "_C=0" & c & "_2D_N=0" & N & "_quarter_gurobi_ECm_real_105lam0.dat");
+
+#printf {xi in Xis, eta in Etas}: "%15g %15g %15g \n", xi, eta, ED_real[xi,eta,1.05*lam0] > ("/astro/opticslab1/Users/Mamadou/AMPL/BPLC/Pupil Data File/BPLC_obs=" & obs & "_sp3=0" & spiders  & "_gaps=0" & gaps & "_FPM=" & round(Rmask*100) & "_ls=" & lsobs & "_lssp=0" & lsspiders  & "_IWA=0" & rho0*10 & "_OWA=" & rho1*10 & "_BW=" & round(bw*100) & "_C=0" & c & "_2D_N=0" & N & "_quarter_gurobi_ED_real_105lam0.dat");
+
+
+
+#printf {mx in MXs, my in MYs}: "%15g %15g %15g \n", mx, my, EBm_real[mx,my,0.975*lam0] > ("/astro/opticslab1/Users/Mamadou/AMPL/BPLC/Pupil Data File/BPLC_obs=" & obs & "_sp3=0" & spiders  & "_gaps=0" & gaps & "_FPM=" & round(Rmask*100) & "_ls=" & lsobs & "_lssp=0" & lsspiders & "_IWA=0" & rho0*10 & "_OWA=" & rho1*10 & "_BW=" & round(bw*100) & "_C=0" & c & "_2D_N=0" & N & "_quarter_gurobi_EBm_real_0975lam0.dat");
+
+#printf {x in Xs, y in Ys}: "%15g %15g %15g \n", x, y, ECm_real[x,y,0.975*lam0] > ("/astro/opticslab1/Users/Mamadou/AMPL/BPLC/Pupil Data File/BPLC_obs=" & obs & "_sp3=0" & spiders  & "_gaps=0" & gaps & "_FPM=" & round(Rmask*100) & "_ls=" & lsobs & "_lssp=0" & lsspiders  & "_IWA=0" & rho0*10 & "_OWA=" & rho1*10 & "_BW=" & round(bw*100) & "_C=0" & c & "_2D_N=0" & N & "_quarter_gurobi_ECm_real_0975lam0.dat");
+
+#printf {xi in Xis, eta in Etas}: "%15g %15g %15g \n", xi, eta, ED_real[xi,eta,0.975*lam0] > ("/astro/opticslab1/Users/Mamadou/AMPL/BPLC/Pupil Data File/BPLC_obs=" & obs & "_sp3=0" & spiders  & "_gaps=0" & gaps & "_FPM=" & round(Rmask*100) & "_ls=" & lsobs & "_lssp=0" & lsspiders & "_IWA=0" & rho0*10 & "_OWA=" & rho1*10 & "_BW=" & round(bw*100) & "_C=0" & c & "_2D_N=0" & N & "_quarter_gurobi_ED_real_0975lam0.dat");
+
+
+#printf {mx in MXs, my in MYs}: "%15g %15g %15g \n", mx, my, EBm_real[mx,my,1.025*lam0] > ("/astro/opticslab1/Users/Mamadou/AMPL/BPLC/Pupil Data File/BPLC_obs=" & obs & "_sp3=0" & spiders  & "_gaps=0" & gaps & "_FPM=" & round(Rmask*100) & "_ls=" & lsobs & "_lssp=0" & lsspiders  & "_IWA=0" & rho0*10 & "_OWA=" & rho1*10 & "_BW=" & round(bw*100) & "_C=0" & c & "_2D_N=0" & N & "_quarter_gurobi_EBm_real_1025lam0.dat");
+
+#printf {x in Xs, y in Ys}: "%15g %15g %15g \n", x, y, ECm_real[x,y,1.025*lam0] > ("/astro/opticslab1/Users/Mamadou/AMPL/BPLC/Pupil Data File/BPLC_obs=" & obs & "_sp3=0" & spiders  & "_gaps=0" & gaps & "_FPM=" & round(Rmask*100) & "_ls=" & lsobs & "_lssp=0" & lsspiders & "_IWA=0" & rho0*10 & "_OWA=" & rho1*10 & "_BW=" & round(bw*100) & "_C=0" & c & "_2D_N=0" & N & "_quarter_gurobi_ECm_real_1025lam0.dat");
+
+#printf {xi in Xis, eta in Etas}: "%15g %15g %15g \n", xi, eta, ED_real[xi,eta,1.025*lam0] > ("/astro/opticslab1/Users/Mamadou/AMPL/BPLC/Pupil Data File/BPLC_obs=" & obs & "_sp3=0" & spiders  & "_gaps=0" & gaps & "_FPM=" & round(Rmask*100) & "_ls=" & lsobs & "_lssp=0" & lsspiders & "_IWA=0" & rho0*10 & "_OWA=" & rho1*10 & "_BW=" & round(bw*100) & "_C=0" & c & "_2D_N=0" & N & "_quarter_gurobi_ED_real_1025lam0.dat");
+
+#---------------------
+### aperture with obstruction, spiders, and gaps and OD
+#printf {x in Xs, y in Ys}: "%15g %15g %15g \n", x, y, A[x,y] > ("/astro/opticslab1/Users/Mamadou/AMPL/BPLC/Pupil Data File/BPLC_obs=0" & obs & "_sp=0" & spiders  & "_gaps=0" & gaps & "_FPM=" & round(Rmask*100) & "_ls=0" & lsobs & "_lssp=0" & lsspiders  & "_OD=" & OD*100 & "_IWA=0" & rho0*10 & "_OWA=" & rho1*10 & "_BW=" & round(bw*100) & "_C=0" & c & "_2D_N=0" & N & "_quarter_BW_gurobi.dat");
+
+
+#printf {mx in MXs, my in MYs}: "%15g %15g %15g \n", mx, my, EBm_real[mx,my,lam0] > ("/astro/opticslab1/Users/Mamadou/AMPL/BPLC/Pupil Data File/BPLC_obs=0" & obs & "_sp=0" & spiders  & "_gaps=0" & gaps & "_FPM=" & round(Rmask*100) & "_ls=0" & lsobs & "_lssp=0" & lsspiders  & "_OD=" & OD*100 & "_IWA=0" & rho0*10 & "_OWA=" & rho1*10 & "_BW=" & round(bw*100) & "_C=0" & c & "_2D_N=0" & N & "_quarter_BW_gurobi_EBm_real.dat");
+
+#printf {x in Xs, y in Ys}: "%15g %15g %15g \n", x, y, ECm_real[x,y,lam0] > ("/astro/opticslab1/Users/Mamadou/AMPL/BPLC/Pupil Data File/BPLC_obs=0" & obs & "_sp=0" & spiders  & "_gaps=0" & gaps & "_FPM=" & round(Rmask*100) & "_ls=0" & lsobs & "_lssp=0" & lsspiders  & "_OD=" & OD*100 & "_IWA=0" & rho0*10 & "_OWA=" & rho1*10 & "_BW=" & round(bw*100) & "_C=0" & c & "_2D_N=0" & N & "_quarter_BW_gurobi_ECm_real.dat");
+
+#printf {xi in Xis, eta in Etas}: "%15g %15g %15g \n", xi, eta, ED_real[xi,eta,lam0] > ("/astro/opticslab1/Users/Mamadou/AMPL/BPLC/Pupil Data File/BPLC_obs=0" & obs & "_sp=0" & spiders  & "_gaps=0" & gaps & "_FPM=" & round(Rmask*100) & "_ls=0" & lsobs & "_lssp=0" & lsspiders  & "_OD=" & OD*100 & "_IWA=0" & rho0*10 & "_OWA=" & rho1*10 & "_BW=" & round(bw*100) & "_C=0" & c & "_2D_N=0" & N & "_quarter_BW_gurobi_ED_real.dat");
+
+#printf {mx in MXs, my in MYs}: "%15g %15g %15g \n", mx, my, EBm_real[mx,my,0.95*lam0] > ("/astro/opticslab1/Users/Mamadou/AMPL/BPLC/Pupil Data File/BPLC_obs=0" & obs & "_sp=0" & spiders  & "_gaps=0" & gaps & "_FPM=" & round(Rmask*100) & "_ls=0" & lsobs & "_lssp=0" & lsspiders  & "_OD=" & OD*100 & "_IWA=0" & rho0*10 & "_OWA=" & rho1*10 & "_BW=" & round(bw*100) & "_C=0" & c & "_2D_N=0" & N & "_quarter_BW_gurobi_EBm_real_095lam0.dat");
+
+#printf {x in Xs, y in Ys}: "%15g %15g %15g \n", x, y, ECm_real[x,y,0.95*lam0] > ("/astro/opticslab1/Users/Mamadou/AMPL/BPLC/Pupil Data File/BPLC_obs=0" & obs & "_sp=0" & spiders  & "_gaps=0" & gaps & "_FPM=" & round(Rmask*100) & "_ls=0" & lsobs & "_lssp=0" & lsspiders  & "_OD=" & OD*100 & "_IWA=0" & rho0*10 & "_OWA=" & rho1*10 & "_BW=" & round(bw*100) & "_C=0" & c & "_2D_N=0" & N & "_quarter_BW_gurobi_ECm_real_095lam0.dat");
+
+#printf {xi in Xis, eta in Etas}: "%15g %15g %15g \n", xi, eta, ED_real[xi,eta,0.95*lam0] > ("/astro/opticslab1/Users/Mamadou/AMPL/BPLC/Pupil Data File/BPLC_obs=0" & obs & "_sp=0" & spiders  & "_gaps=0" & gaps & "_FPM=" & round(Rmask*100) & "_ls=0" & lsobs & "_lssp=0" & lsspiders  & "_OD=" & OD*100 & "_IWA=0" & rho0*10 & "_OWA=" & rho1*10 & "_BW=" & round(bw*100) & "_C=0" & c & "_2D_N=0" & N & "_quarter_BW_gurobi_ED_real_095lam0.dat");
+
+#printf {mx in MXs, my in MYs}: "%15g %15g %15g \n", mx, my, EBm_real[mx,my,1.05*lam0] > ("/astro/opticslab1/Users/Mamadou/AMPL/BPLC/Pupil Data File/BPLC_obs=0" & obs & "_sp=0" & spiders  & "_gaps=0" & gaps & "_FPM=" & round(Rmask*100) & "_ls=0" & lsobs & "_lssp=0" & lsspiders  & "_OD=" & OD*100 & "_IWA=0" & rho0*10 & "_OWA=" & rho1*10 & "_BW=" & round(bw*100) & "_C=0" & c & "_2D_N=0" & N & "_quarter_BW_gurobi_EBm_real_105lam0.dat");
+
+#printf {x in Xs, y in Ys}: "%15g %15g %15g \n", x, y, ECm_real[x,y,1.05*lam0] > ("/astro/opticslab1/Users/Mamadou/AMPL/BPLC/Pupil Data File/BPLC_obs=0" & obs & "_sp=0" & spiders  & "_gaps=0" & gaps & "_FPM=" & round(Rmask*100) & "_ls=0" & lsobs & "_lssp=0" & lsspiders  & "_OD=" & OD*100 & "_IWA=0" & rho0*10 & "_OWA=" & rho1*10 & "_BW=" & round(bw*100) & "_C=0" & c & "_2D_N=0" & N & "_quarter_BW_gurobi_ECm_real_105lam0.dat");
+
+#printf {xi in Xis, eta in Etas}: "%15g %15g %15g \n", xi, eta, ED_real[xi,eta,1.05*lam0] > ("/astro/opticslab1/Users/Mamadou/AMPL/BPLC/Pupil Data File/BPLC_obs=0" & obs & "_sp=0" & spiders  & "_gaps=0" & gaps & "_FPM=" & round(Rmask*100) & "_ls=0" & lsobs & "_lssp=0" & lsspiders  & "_OD=" & OD*100 & "_IWA=0" & rho0*10 & "_OWA=" & rho1*10 & "_BW=" & round(bw*100) & "_C=0" & c & "_2D_N=0" & N & "_quarter_BW_gurobi_ED_real_105lam0.dat");
+
+
+
+#printf {mx in MXs, my in MYs}: "%15g %15g %15g \n", mx, my, EBm_real[mx,my,0.975*lam0] > ("/astro/opticslab1/Users/Mamadou/AMPL/BPLC/Pupil Data File/BPLC_obs=" & obs & "_sp3=0" & spiders  & "_gaps=0" & gaps & "_FPM=" & round(Rmask*100) & "_ls=" & lsobs & "_lssp=0" & lsspiders  & "_OD=0" & OD*100 & "_IWA=0" & rho0*10 & "_OWA=" & rho1*10 & "_BW=" & round(bw*100) & "_C=0" & c & "_2D_N=0" & N & "_quarter_gurobi_EBm_real_0975lam0.dat");
+
+#printf {x in Xs, y in Ys}: "%15g %15g %15g \n", x, y, ECm_real[x,y,0.975*lam0] > ("/astro/opticslab1/Users/Mamadou/AMPL/BPLC/Pupil Data File/BPLC_obs=" & obs & "_sp3=0" & spiders  & "_gaps=0" & gaps & "_FPM=" & round(Rmask*100) & "_ls=" & lsobs & "_lssp=0" & lsspiders  & "_OD=0" & OD*100 & "_IWA=0" & rho0*10 & "_OWA=" & rho1*10 & "_BW=" & round(bw*100) & "_C=0" & c & "_2D_N=0" & N & "_quarter_gurobi_ECm_real_0975lam0.dat");
+
+#printf {xi in Xis, eta in Etas}: "%15g %15g %15g \n", xi, eta, ED_real[xi,eta,0.975*lam0] > ("/astro/opticslab1/Users/Mamadou/AMPL/BPLC/Pupil Data File/BPLC_obs=" & obs & "_sp3=0" & spiders  & "_gaps=0" & gaps & "_FPM=" & round(Rmask*100) & "_ls=" & lsobs & "_lssp=0" & lsspiders  & "_OD=0" & OD*100 & "_IWA=0" & rho0*10 & "_OWA=" & rho1*10 & "_BW=" & round(bw*100) & "_C=0" & c & "_2D_N=0" & N & "_quarter_gurobi_ED_real_0975lam0.dat");
+
+
+#printf {mx in MXs, my in MYs}: "%15g %15g %15g \n", mx, my, EBm_real[mx,my,1.025*lam0] > ("/astro/opticslab1/Users/Mamadou/AMPL/BPLC/Pupil Data File/BPLC_obs=" & obs & "_sp3=0" & spiders  & "_gaps=0" & gaps & "_FPM=" & round(Rmask*100) & "_ls=" & lsobs & "_lssp=0" & lsspiders  & "_OD=0" & OD*100 & "_IWA=0" & rho0*10 & "_OWA=" & rho1*10 & "_BW=" & round(bw*100) & "_C=0" & c & "_2D_N=0" & N & "_quarter_gurobi_EBm_real_1025lam0.dat");
+
+#printf {x in Xs, y in Ys}: "%15g %15g %15g \n", x, y, ECm_real[x,y,1.025*lam0] > ("/astro/opticslab1/Users/Mamadou/AMPL/BPLC/Pupil Data File/BPLC_obs=" & obs & "_sp3=0" & spiders  & "_gaps=0" & gaps & "_FPM=" & round(Rmask*100) & "_ls=" & lsobs & "_lssp=0" & lsspiders  & "_OD=0" & OD*100 & "_IWA=0" & rho0*10 & "_OWA=" & rho1*10 & "_BW=" & round(bw*100) & "_C=0" & c & "_2D_N=0" & N & "_quarter_gurobi_ECm_real_1025lam0.dat");
+
+#printf {xi in Xis, eta in Etas}: "%15g %15g %15g \n", xi, eta, ED_real[xi,eta,1.025*lam0] > ("/astro/opticslab1/Users/Mamadou/AMPL/BPLC/Pupil Data File/BPLC_obs=" & obs & "_sp3=0" & spiders  & "_gaps=0" & gaps & "_FPM=" & round(Rmask*100) & "_ls=" & lsobs & "_lssp=0" & lsspiders  & "_OD=0" & OD*100 & "_IWA=0" & rho0*10 & "_OWA=" & rho1*10 & "_BW=" & round(bw*100) & "_C=0" & c & "_2D_N=0" & N & "_quarter_gurobi_ED_real_1025lam0.dat");
+
+

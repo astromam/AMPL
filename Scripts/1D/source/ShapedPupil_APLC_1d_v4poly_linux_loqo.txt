@@ -1,0 +1,68 @@
+load amplgsl.dll;
+function gsl_sf_bessel_J0;
+function gsl_sf_bessel_J1;
+
+param pi := 4*atan(1);
+
+param c := 10;
+param obs := 0.2;
+param lsobs := 0.2;
+
+param Rmask := 5.0;
+param IWA := 10.0;param OWA := 20.0;
+
+param N := 1000;			# discretization parameter (pupil)
+param M := 100;
+param Nimg := 500;			# discretization parameter (image)
+param Fmax := 50;
+
+param bw := 0.2;
+param lam0 := 1;
+param dl := bw*lam0;
+param Nlam := 5;
+
+param dr := 1/(2*N);
+param dv := Fmax/Nimg;
+param dm := 2*Rmask/(2*M);
+
+set Rs := setof {j in 0.5..N-0.5} j*dr;
+set Ms := setof {k in 0..M} k*dm;
+set Vs := setof {n in 0..Nimg} n*dv;
+set Ls := setof {l in 1..Nlam} lam0*(1+((l-1)/(Nlam-1)-0.5)*dl);
+
+set Pupil := setof {r in Rs: r<0.5 && r>obs/2} r;
+set Lyot := setof {r in Rs: r<0.5 && r>lsobs/2} r;
+param TR := sum {r in Rs} 2*pi*r*dr;
+
+var A {r in Rs} <=1, >=0, :=0.5;
+
+set Xis ordered;
+let Xis := setof {j in 0..Nimg} IWA+j*(OWA-IWA)/Nimg;
+
+option times 1;option gentimes 1;option show_stats 1;
+
+var EBm {m in Ms, lam in Ls} :=0.0;
+subject to st_EBm {m in Ms, lam in Ls}: EBm[m,lam] = sum {r in Pupil} (lam0/lam)*2*pi*r*A[r]*gsl_sf_bessel_J0(2*pi*m*r*lam0/lam)*dr;
+
+var ECm {r in Pupil, lam in Ls} :=0.0;
+subject to st_ECm {r in Pupil, lam in Ls}: ECm[r,lam] = sum {m in Ms} (lam0/lam)*2*pi*m*EBm[m,lam]*gsl_sf_bessel_J0(2*pi*m*r*lam0/lam)*dm;
+
+var ED {xi in Xis, lam in Ls} := 0.0;
+subject to st_ED {xi in Xis, lam in Ls}: ED[xi,lam] = sum {r in Lyot} (lam0/lam)*2*pi*r*(A[r]-ECm[r,lam])*gsl_sf_bessel_J0(2*pi*xi*r*lam0/lam)*dr;
+
+var ED00 := 0.0;
+subject to st_ED00: ED00 = sum {r in Lyot} 2*pi*r*A[r]*dr;
+
+maximize throughput: sum {r in Rs} 2*pi*r*A[r]*dr/TR;
+
+subject to sidelobe_zero_real_pos {xi in Xis, lam in Ls}: ED[xi, lam] <= 10^(-c/2)*ED00;
+subject to sidelobe_zero_real_neg {xi in Xis, lam in Ls}: -10^(-c/2)*ED00 <= ED[xi, lam];
+
+option solver loqo;
+
+solve;
+display solve_result_num, solve_result;
+
+printf {r in Rs}: "%15g %15g \n", r, A[r] > ("/home/mamadou/Desktop/AMPL/BPLC/Pupil Data File/Pupil Data File 1D/BPLC_obs=" & round(obs*100) & "_FPM=" & round(Rmask*100) & "_ls=" & round(lsobs*100) & "_IWA=" & IWA*10 & "_OWA=" & OWA*10 & "_BW=" & bw*100 & "_C=" & c & "_1D_N=0" & N & "_loqo_apod.dat");
+
+#printf {r in Rs}: "%15g %15g \n", r, A[r] > "/home/mamadou/Desktop/AMPL/BPLC/Pupil Data File/BPLC_OBS=20_LS=40_FPM=331_IWA=050_OWA=200_BW=20_C=08_loqo.dat";
